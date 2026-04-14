@@ -54,8 +54,6 @@ const SIZE_ICON_MAP: Record<string, Record<string, any>> = {
     large: require("@/assets/images/DiamondLarge.png"),
     huge: require("@/assets/images/DiamondHuge.png"),
   },
-  // Add similar mappings for other gem types if icons available
-  // emerald: {...}, sapphire: {...}, etc.
 };
 
 const DEFAULT_SIZE_ICONS: Record<string, any> = {
@@ -73,7 +71,6 @@ type MineItem = {
   baseGems: number;
 };
 
-// Size and multipliers
 const MINE_SIZES = ["tiny", "small", "medium", "large", "huge"] as const;
 type MineSize = (typeof MINE_SIZES)[number];
 

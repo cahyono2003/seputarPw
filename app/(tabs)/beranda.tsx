@@ -297,11 +297,7 @@ export default function HomeScreen() {
         ]}
       >
         <View style={styles.summaryRow}>
-          <Text style={styles.summaryLabel}>Total Fish</Text>
-          <Text style={styles.summaryValue}>{totalFish} fish</Text>
-        </View>
-        <View style={styles.summaryRow}>
-          <Text style={styles.summaryLabel}>Gems Value</Text>
+          <Text style={styles.summaryLabel}>Total Gems Value</Text>
           <Pressable
             onPress={copyGemsValue}
             style={({ pressed }) => [

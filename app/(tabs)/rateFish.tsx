@@ -173,7 +173,6 @@ export default function RateFishScreen() {
                   },
                 ]}
               />
-              <Text style={[styles.suffix, { color: "#fff" }]}>byte / 1k</Text>
             </View>
           </View>
 
@@ -265,9 +264,6 @@ export default function RateFishScreen() {
                 />
                 <Text style={styles.resultLabel}>BYTE COINS</Text>
               </View>
-              <Text style={styles.resultHint}>
-                byte = (gems / 1000) × {byteRate || 0}
-              </Text>
             </View>
           </View>
         </ScrollView>
