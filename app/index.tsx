@@ -42,7 +42,7 @@ export default function SplashRoute() {
         resizeMode="contain"
         accessibilityIgnoresInvertColors
       />
-      <Text style={styles.title}>Seputar PW</Text>
+      <Text style={styles.title}>Calculator Pixel World</Text>
       <Text style={styles.subtitle}>Penghitung & estimasi nilai ikan</Text>
       <ActivityIndicator size="large" color="#7DD3FC" style={styles.loader} />
     </View>
