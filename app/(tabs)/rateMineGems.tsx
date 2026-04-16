@@ -1,5 +1,4 @@
 import React, { useMemo, useState } from "react";
-import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme.web";
 import { router } from "expo-router";
 import {
@@ -97,15 +96,14 @@ function getMineUnitPrice(itemId: string, baseGems: number, size: MineSize): num
 }
 
 function sizeLabel(size: MineSize): string {
-  // Prettier labels if desired
-  switch (size) {
-    case "tiny": return "Tiny";
-    case "small": return "Small";
-    case "medium": return "Medium";
-    case "large": return "Large";
-    case "huge": return "Huge";
-    default: return size.charAt(0).toUpperCase() + size.slice(1);
-  }
+  const labels: Record<MineSize, string> = {
+    tiny: "Tiny",
+    small: "Small",
+    medium: "Medium",
+    large: "Large",
+    huge: "Huge",
+  };
+  return labels[size];
 }
 
 // Main MINE ITEMS
@@ -129,7 +127,6 @@ function formatThousands(value: number): string {
 
 export default function RateMineGemsScreen() {
   const colorScheme = useColorScheme() ?? "light";
-  const theme = Colors[colorScheme === "light" ? "light" : "light"];
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const isNarrow = width < 480;
@@ -252,7 +249,7 @@ export default function RateMineGemsScreen() {
           contentContainerStyle={[
             styles.scrollContent,
             {
-              paddingBottom: insets.bottom + 32,
+              paddingBottom: insets.bottom + 120,
               maxWidth: 850,
               alignSelf: "center",
               width: "100%",
@@ -371,22 +368,17 @@ export default function RateMineGemsScreen() {
             </View>
           ))}
 
-          <View
-            style={[
-              styles.resultCard,
-              {
-                backgroundColor: "rgba(6,182,212,0.97)",
-                borderColor: "#e0f2fe",
-                borderWidth: 1.3,
-                shadowColor: "#0e7490",
-                shadowOpacity: 0.16,
-                shadowOffset: { width: 0, height: 5 },
-                shadowRadius: 9,
-                marginTop: 26,
-              },
-            ]}
-          >
-            <Text style={styles.resultLabel}>TOTAL MINING GEMS</Text>
+        </ScrollView>
+        <View
+          style={[
+            styles.summary,
+            {
+              paddingBottom: Math.max(insets.bottom, 12),
+            },
+          ]}
+        >
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>Total Gems Value</Text>
             <Pressable
               onPress={copyTotalGems}
               style={({ pressed }) => [
@@ -396,26 +388,20 @@ export default function RateMineGemsScreen() {
               accessibilityLabel="Salin total mining gems"
               android_ripple={{ color: "#0369A1" }}
             >
-              <Text style={styles.resultValue}>
+              <Text style={styles.summaryValueLarge}>
                 {formatThousands(totalGems)} gems
               </Text>
               <Image
                 source={require("@/assets/images/copy.png")}
-                style={[
-                  styles.copyIcon,
-                  {
-                    opacity: copied ? 1 : 0.85,
-                    marginLeft: 7,
-                  },
-                ]}
+                style={[styles.copyIcon, { opacity: copied ? 1 : 0.85 }]}
                 resizeMode="contain"
               />
             </Pressable>
-            {copied && (
-              <Text style={styles.copiedHint}>Copied!</Text>
-            )}
           </View>
-        </ScrollView>
+          {copied && (
+            <Text style={styles.copiedHint}>Copied!</Text>
+          )}
+        </View>
       </View>
     </ImageBackground>
   );
@@ -570,29 +556,35 @@ const styles = StyleSheet.create({
     marginTop: 0,
     marginBottom: 1,
   },
-  resultCard: {
-    padding: 13,
-    borderRadius: 18,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 1,
+  summary: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingHorizontal: 23,
+    paddingTop: 17,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    backgroundColor: "rgba(6,33,53,0.98)",
+    borderTopColor: "#7dd3fc",
   },
-  resultLabel: {
+  summaryRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 7,
+  },
+  summaryLabel: {
     color: "#e0f2fe",
     fontSize: 15,
-    marginBottom: 6,
-    fontWeight: "600",
-    letterSpacing: 0.15,
+    fontWeight: "700",
+    letterSpacing: 0.13,
   },
-  resultValue: {
+  summaryValueLarge: {
     color: "#fff",
-    fontSize: 27,
-    fontWeight: "900",
-    letterSpacing: 0.32,
-    textShadowColor: "#0ea5e9",
-    textShadowRadius: 9,
-    textShadowOffset: { width: 1, height: 2 },
-    marginRight: 5,
+    fontSize: 22,
+    fontWeight: "800",
+    marginRight: 6,
+    letterSpacing: 0.12,
   },
   copyValuePressable: {
     flexDirection: "row",

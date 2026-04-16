@@ -7,7 +7,6 @@ import {
   type FishSize,
 } from "@/constants/fish-data";
 import { useFish } from "@/context/fish-context";
-import { useColorScheme } from "@/hooks/use-color-scheme.web";
 import * as Clipboard from "expo-clipboard";
 import { router } from "expo-router";
 import React, { useCallback } from "react";
@@ -130,11 +129,10 @@ const fishImageById: Record<string, any> = {
 };
 
 export default function HomeScreen() {
-  const colorScheme = useColorScheme() ?? "light";
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
-  const isNarrow = width < 420;
-  const { counts, setCount, reset, totalFish, totalValue } = useFish();
+  const isNarrow = width < 480;
+  const { counts, setCount, reset, totalValue } = useFish();
   const [copied, setCopied] = React.useState(false);
 
   const setCountFromInput = useCallback(
@@ -215,7 +213,7 @@ export default function HomeScreen() {
           styles.scrollContent,
           {
             paddingBottom: insets.bottom + 120,
-            maxWidth: 720,
+            maxWidth: 850,
             alignSelf: "center",
             width: "100%",
           },
@@ -237,39 +235,34 @@ export default function HomeScreen() {
                 {fish.label}
               </Text>
             </View>
-            {SIZES.map((size) => {
-              const n = counts[fish.id][size] ?? 0;
-              const unit = getUnitPrice(fish.id, size);
-              const line = n * unit;
-              // mapping pake (fish.id, size) ke icon
-              const sizeKey = typeof size === "string" ? size.toLowerCase() : String(size);
-              const sizeIcon = SIZE_ICONS[fish.id]?.[sizeKey];
-              return (
-                <View
-                  key={size}
-                  style={[
-                    styles.sizeRow,
-                    isNarrow && styles.sizeRowNarrow,
-                  ]}
-                >
-                  <View style={[styles.sizeMeta, isNarrow && styles.sizeMetaNarrow]}>
-                    <View style={styles.sizeMetaRow}>
-                      {sizeIcon && (
-                        <Image
-                          source={sizeIcon}
-                          style={styles.sizeIcon}
-                          resizeMode="contain"
-                        />
-                      )}
-                      <Text style={styles.sizeName}>
-                        {sizeLabel(size)}
-                      </Text>
-                    </View>
+            <View style={styles.sizesRowWrap}>
+              {SIZES.map((size) => {
+                const n = counts[fish.id][size] ?? 0;
+                const unit = getUnitPrice(fish.id, size);
+                const line = n * unit;
+                const sizeKey = typeof size === "string" ? size.toLowerCase() : String(size);
+                const sizeIcon = SIZE_ICONS[fish.id]?.[sizeKey];
+                return (
+                  <View
+                    key={size}
+                    style={[
+                      styles.sizeBox,
+                      isNarrow && styles.sizeBoxNarrow,
+                    ]}
+                  >
+                    {sizeIcon && (
+                      <Image
+                        source={sizeIcon}
+                        style={styles.sizeIcon}
+                        resizeMode="contain"
+                      />
+                    )}
+                    <Text style={styles.sizeName}>
+                      {sizeLabel(size)}
+                    </Text>
                     <Text style={styles.unitPrice}>
                       {formatPrice(unit)} / Fish
                     </Text>
-                  </View>
-                  <View style={[styles.stepper, isNarrow && styles.stepperNarrow]}>
                     <TextInput
                       value={String(n)}
                       onChangeText={(value) =>
@@ -278,13 +271,13 @@ export default function HomeScreen() {
                       keyboardType="number-pad"
                       style={styles.countInput}
                     />
+                    <Text style={styles.lineTotal}>
+                      {formatPrice(line)}
+                    </Text>
                   </View>
-                  <Text style={[styles.lineTotal, isNarrow && styles.lineTotalNarrow]}>
-                    {formatPrice(line)}
-                  </Text>
-                </View>
-              );
-            })}
+                );
+              })}
+            </View>
           </View>
         ))}
       </ScrollView>
@@ -399,128 +392,120 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   card: {
-    borderRadius: 16,
-    overflow: "hidden",
-    backgroundColor: "rgba(11,30,48,0.88)",
-    paddingBottom: 6,
-    marginVertical: 6,
-    borderColor: "#334155",
-    borderWidth: 1,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.09,
-    shadowRadius: 10,
+    borderRadius: 20,
+    borderWidth: 1.6,
+    marginBottom: 0,
+    padding: 15,
+    minWidth: 0,
+    marginHorizontal: 0,
+    marginTop: 0,
+    backgroundColor: "rgba(10,44,71,0.985)",
+    borderColor: "#0284c7",
+    shadowOffset: { width: 0, height: 4 },
+    shadowColor: "#0ea5e9",
+    shadowRadius: 5,
+    shadowOpacity: 0.14,
     elevation: 2,
   },
   cardHeader: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 13,
-    paddingHorizontal: 18,
-    paddingVertical: 14,
+    gap: 8,
+    marginBottom: 14,
+    borderBottomColor: "#e0f2fe",
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingBottom: 7,
   },
   fishImage: {
-    width: 52,
-    height: 52,
-    borderRadius: 4
+    width: 50,
+    height: 50,
   },
   fishName: {
-    fontSize: 18,
-    fontWeight: "800",
-    alignItems: "baseline",
+    fontSize: 20,
+    fontWeight: "700",
     color: "#F0FDFA",
-    letterSpacing: 0.12,
-    textShadowColor: "#0ea5e9",
+    letterSpacing: 0.1,
+    marginLeft: 10,
+    textShadowColor: "#075985",
     textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
+    textShadowRadius: 4,
   },
-  // Baris setiap ukuran ikan
-  sizeRow: {
+  sizesRowWrap: {
     flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: "#334155",
-    gap: 10,
-    backgroundColor: "rgba(14,48,78,0.71)",
-    marginBottom: 2,
-    borderRadius: 8,
-    marginTop: 4,
-  },
-  sizeRowNarrow: {
     flexWrap: "wrap",
-    alignItems: "flex-start",
+    gap: 15,
+    justifyContent: "space-between",
+    width: "100%",
   },
-  sizeMeta: {
-    flex: 1,
-    minWidth: 0,
-    justifyContent: "center",
-  },
-  sizeMetaNarrow: {
-    minWidth: "100%",
-  },
-  sizeMetaRow: {
-    flexDirection: "row",
+  sizeBox: {
+    backgroundColor: "rgba(236,254,255,0.82)",
+    borderRadius: 15,
+    padding: 10,
+    marginBottom: 9,
     alignItems: "center",
-    gap: 10,
-    marginBottom: 2,
+    width: 120,
+    minWidth: 0,
+    shadowColor: "#bae6fd",
+    shadowOffset: { width: 1, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 9,
+    marginTop: 5,
+    borderWidth: 1,
+    borderColor: "#bae6fd",
+  },
+  sizeBoxNarrow: {
+    width: "46%",
+    minWidth: 100,
   },
   sizeIcon: {
     width: 50,
     height: 50,
-    marginRight: 4,
+    marginBottom: 5,
+    marginTop: 2,
   },
   sizeName: {
     fontWeight: "700",
     fontSize: 15,
-    color: "#e0f2fe",
+    color: "#0284C7",
     letterSpacing: 0.06,
+    marginBottom: 2,
   },
   unitPrice: {
     fontSize: 12,
-    marginTop: 5,
-    color: "#bae6fd",
-    fontWeight: "600"
-  },
-  stepper: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    marginHorizontal: 6,
-  },
-  stepperNarrow: {
-    marginTop: 2,
+    marginTop: 1,
+    marginBottom: 4,
+    color: "#0891b2",
+    fontWeight: "500"
   },
   countInput: {
-    minWidth: 54,
-    height: 46,
+    minWidth: 55,
+    maxWidth: 68,
+    width: "100%",
+    borderWidth: 1.1,
+    borderRadius: 8,
+    paddingHorizontal: 7,
+    paddingVertical: Platform.OS === "web" ? 8 : 7,
     textAlign: "center",
     fontSize: 15,
-    fontWeight: "700",
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 6,
-    color: "#0c293a",
-    borderColor: "#7dd3fc",
-    backgroundColor: "#fff",
-    shadowColor: "#7dd3fc",
-    shadowOpacity: 0.09,
+    marginTop: 6,
+    marginBottom: 3,
+    fontWeight: "600",
+    color: "#334155",
+    borderColor: "#36bef7",
+    backgroundColor: "#f0f9ff",
+    shadowOpacity: 0.07,
     shadowOffset: { width: 0, height: 1 },
     shadowRadius: 5,
   },
   lineTotal: {
-    width: 90,
-    textAlign: "right",
-    fontWeight: "700",
-    fontSize: 16,
-    color: "#F0FDFA",
+    minWidth: 62,
+    textAlign: "center",
+    fontWeight: "600",
+    fontSize: 13,
+    color: "#164e63",
     letterSpacing: 0.08,
-  },
-  lineTotalNarrow: {
-    width: "auto",
-    marginLeft: "auto",
-    marginTop: 8,
+    marginTop: 0,
+    marginBottom: 1,
   },
   summary: {
     position: "absolute",

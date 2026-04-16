@@ -1,12 +1,12 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { SplashScreen, Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
+import React, { useEffect } from 'react';
+import { Platform } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import 'react-native-reanimated';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import React from 'react';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -15,6 +15,19 @@ export default function RootLayout() {
 
   useEffect(() => {
     SplashScreen.hideAsync();
+
+    if (Platform.OS === 'web' && typeof document !== 'undefined') {
+      let viewport = document.querySelector('meta[name="viewport"]');
+      if (!viewport) {
+        viewport = document.createElement('meta');
+        viewport.setAttribute('name', 'viewport');
+        document.head.appendChild(viewport);
+      }
+      viewport.setAttribute(
+        'content',
+        'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover'
+      );
+    }
   }, []);
 
   return (
