@@ -495,9 +495,9 @@ const styles = StyleSheet.create({
   sizesRowWrap: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 10,
+    gap: 13,
     justifyContent: "space-between",
-    width: "90%",
+    width: "97%",
   },
   sizeBox: {
     backgroundColor: "#f5fafc",
