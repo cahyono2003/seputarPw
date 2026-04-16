@@ -38,8 +38,9 @@ export default function RateFishScreen() {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
 
-  const [rateInput, setRateInput] = useState(String(byteRate));
-  const [totalGemsInput, setTotalGemsInput] = useState("1.000");
+  // Initial input values are empty
+  const [rateInput, setRateInput] = useState("");
+  const [totalGemsInput, setTotalGemsInput] = useState("");
 
   const parsedRate = useMemo(() => parseNonNegativeNumber(rateInput), [rateInput]);
   const parsedTotalGems = useMemo(() => parseIntegerDigits(totalGemsInput), [totalGemsInput]);
@@ -163,7 +164,7 @@ export default function RateFishScreen() {
                 value={rateInput}
                 onChangeText={setRateInput}
                 keyboardType="numeric"
-                placeholder="0"
+                placeholder="Enter rate gems"
                 placeholderTextColor="#9CA3AF"
                 style={[
                   styles.input,
@@ -201,7 +202,7 @@ export default function RateFishScreen() {
               value={totalGemsInput}
               onChangeText={onChangeTotalGems}
               keyboardType="number-pad"
-              placeholder="0"
+              placeholder="Enter your total gems"
               placeholderTextColor="#9CA3AF"
               style={[
                 styles.totalGemsInput,

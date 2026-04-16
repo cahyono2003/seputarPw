@@ -9,8 +9,9 @@ import {
 import { useFish } from "@/context/fish-context";
 import * as Clipboard from "expo-clipboard";
 import { router } from "expo-router";
-import React, { useCallback } from "react";
+import React, { useCallback, useState } from "react";
 import {
+  Modal,
   Alert,
   Image,
   Platform,
@@ -22,6 +23,7 @@ import {
   useWindowDimensions,
   View,
   ImageBackground,
+  TouchableOpacity,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -128,24 +130,119 @@ const fishImageById: Record<string, any> = {
   crab: require("@/assets/images/crab.png"),
 };
 
+const MAX_FISH_COUNT = 1000000;
+
+function OverlimitModal({ visible, onClose }: { visible: boolean, onClose: () => void }) {
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={onClose}
+    >
+      <View style={modalStyles.modalBackground}>
+        <View style={modalStyles.modalContainer}>
+          <Image
+            source={require("@/assets/images/kucing.jpg")}
+            style={modalStyles.catImage}
+            resizeMode="cover"
+          />
+          <Text style={modalStyles.modalTitle}>Seriously bro?</Text>
+          <Text style={modalStyles.modalText}>
+          The maximum number of fish is 1,000,000 per type/size.
+          </Text>
+          <TouchableOpacity style={modalStyles.okButton} onPress={onClose} activeOpacity={0.86}>
+            <Text style={modalStyles.okButtonText}>OK</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const sizeBoxBasis = width < 520 ? "48%" : width < 900 ? "31%" : "18.5%";
   const { counts, setCount, reset, totalValue } = useFish();
-  const [copied, setCopied] = React.useState(false);
+  const [copied, setCopied] = useState(false);
 
+  // Simpan input string bebas
+  const [inputCounts, setInputCounts] = useState<{ [key: string]: string }>({});
+  const [invalidCounts, setInvalidCounts] = useState<{ [key: string]: boolean }>({});
+
+  // Modal state for overlimit
+  const [showOverlimitModal, setShowOverlimitModal] = useState(false);
+
+  // Reset inputCounts & context counts jika reset
+  const fullReset = () => {
+    // reset state context
+    reset();
+    // reset inputCounts agar semua TextInput jadi nol
+    const cleared: { [key: string]: string } = {};
+    for (const fish of FISHES) {
+      for (const size of SIZES) {
+        cleared[`${fish.id}-${size}`] = "0";
+      }
+    }
+    setInputCounts(cleared);
+    setInvalidCounts({});
+  };
+
+  // Sinkronisasi inputCounts dengan counts hanya jika memang data context berubah (misal reload, dsb)
+  React.useEffect(() => {
+    const nextInputs: Record<string, string> = {};
+    for (const fish of FISHES) {
+      for (const size of SIZES) {
+        const key = `${fish.id}-${size}`;
+        // Jika user sudah isi di inputCounts, jangan disinkron ulang ke state context (biar edit tak hilang)
+        if (!(key in inputCounts)) {
+          nextInputs[key] = String(counts[fish.id][size] ?? 0);
+        } else {
+          nextInputs[key] = inputCounts[key];
+        }
+      }
+    }
+    setInputCounts(nextInputs);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [counts]);
+
+  // --- Perbaikan alert overlimit: ---
   const setCountFromInput = useCallback(
     (fishId: string, size: FishSize, raw: string) => {
       const digits = raw.replace(/[^\d]/g, "");
-      const next = digits.length ? Number(digits) : 0;
-      setCount(fishId, size, next);
-    },
-    [setCount],
-  );
+      const key = `${fishId}-${size}`;
+      setInputCounts((prev) => ({ ...prev, [key]: digits }));
 
+      let next = digits.length ? Number(digits) : 0;
+
+      if (next > MAX_FISH_COUNT) {
+        setInvalidCounts((prev) => ({ ...prev, [key]: true }));
+        setShowOverlimitModal((prevShow) => {
+          // Hanya munculkan modal jika sebelumnya tidak invalid (supaya saat delete karakter tidak re-trigger/modal)
+          if (!invalidCounts[key]) {
+            return true;
+          }
+          // Kalau sudah invalid untuk key tsb, jangan paksa show modal (biar tidak muncul2 terus)
+          return prevShow;
+        });
+        // Jangan update context state jika overlimit
+      } else {
+        // Jika sebelumnya invalid dan sekarang sudah tidak (misalkan input dari 1000001 ke misal 100000 atau 0),
+        // pastikan modal langsung hilang!
+        setInvalidCounts((prev) => ({ ...prev, [key]: false }));
+        setShowOverlimitModal(false);
+        setCount(fishId, size, next);
+      }
+    },
+    // perlu invalidCounts sebagai dependency agar bisa tahu status invalid saat ini untuk masing-masing input
+    [setCount, invalidCounts],
+  );
+  // --- End Perbaikan ---
+
+  // Edit: reset juga inputCounts, bukan hanya context!
   const onReset = () => {
-    const apply = () => reset();
+    const apply = () => fullReset();
     if (Platform.OS === "web") {
       if (
         typeof globalThis !== "undefined" &&
@@ -175,6 +272,8 @@ export default function HomeScreen() {
       resizeMode="cover"
       imageStyle={{ opacity: 0.80 }}
     >
+      {/* Custom Overlimit Modal */}
+      <OverlimitModal visible={showOverlimitModal} onClose={() => setShowOverlimitModal(false)} />
       <View style={[styles.header, { marginTop: insets.top }]}>
         <View style={styles.headerLeft}>
           <Pressable
@@ -237,11 +336,24 @@ export default function HomeScreen() {
             </View>
             <View style={styles.sizesRowWrap}>
               {SIZES.map((size) => {
+                const inputKey = `${fish.id}-${size}`;
                 const n = counts[fish.id][size] ?? 0;
+                const inputVal = inputCounts[inputKey] ?? String(n);
                 const unit = getUnitPrice(fish.id, size);
-                const line = n * unit;
+                // Use inputVal as integer for line if <= MAX_FISH_COUNT, else show 0 (seperti saat tidak masuk ke state context)
+                let line = 0;
+                let asNumber = 0;
+                if (/^\d+$/.test(inputVal)) {
+                  asNumber = Number(inputVal);
+                  if (asNumber <= MAX_FISH_COUNT) {
+                    line = asNumber * unit;
+                  } else {
+                    line = 0;
+                  }
+                }
                 const sizeKey = typeof size === "string" ? size.toLowerCase() : String(size);
                 const sizeIcon = SIZE_ICONS[fish.id]?.[sizeKey];
+                const isInvalid = invalidCounts[inputKey] ?? false;
                 return (
                   <View
                     key={size}
@@ -264,13 +376,22 @@ export default function HomeScreen() {
                       {formatPrice(unit)} / Fish
                     </Text>
                     <TextInput
-                      value={String(n)}
+                      value={inputVal}
                       onChangeText={(value) =>
                         setCountFromInput(fish.id, size, value)
                       }
                       keyboardType="number-pad"
-                      style={styles.countInput}
+                      placeholder="0"
+                      style={[
+                        styles.countInput,
+                        isInvalid && { borderColor: "#f87171", backgroundColor: "#fee2e2" },
+                      ]}
                     />
+                    {isInvalid && (
+                      <Text style={{ color: "#dc2626", fontSize: 11, marginTop: 2, marginBottom: -2 }}>
+                        Max 1.000.000
+                      </Text>
+                    )}
                     <Text style={styles.lineTotal}>
                       {formatPrice(line)}
                     </Text>
@@ -562,5 +683,76 @@ const styles = StyleSheet.create({
     opacity: 0.82,
     fontWeight: "400",
     letterSpacing: 0.06,
+  },
+});
+
+const modalStyles = StyleSheet.create({
+  modalBackground: {
+    flex: 1,
+    backgroundColor: "rgba(21,27,36,0.83)",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 17,
+  },
+  modalContainer: {
+    backgroundColor: "#fff",
+    borderRadius: 23,
+    padding: 0,
+    alignItems: "center",
+    shadowColor: "#0284c7",
+    shadowOpacity: 0.13,
+    shadowOffset: { width: 0, height: 5 },
+    shadowRadius: 18,
+    minWidth: 290,
+    width: 320,
+    maxWidth: "95%",
+    elevation: 8,
+    overflow: "hidden",
+  },
+  catImage: {
+    width: 200,
+    height: 190,
+    marginTop: 20,
+    borderTopLeftRadius: 23,
+    borderTopRightRadius: 23,
+    backgroundColor: "#e0e7ef",
+  },
+  modalTitle: {
+    marginTop: 13,
+    fontWeight: "800",
+    fontSize: 22,
+    color: "#0284c7",
+    letterSpacing: 0.07,
+    textAlign: "center",
+    marginBottom: 2,
+  },
+  modalText: {
+    textAlign: "center",
+    color: "#334155",
+    marginTop: 3,
+    fontSize: 16,
+    lineHeight: 23,
+    marginBottom: 17,
+    paddingHorizontal: 18,
+    fontWeight: "500",
+  },
+  okButton: {
+    backgroundColor: "#0891b2",
+    borderRadius: 13,
+    paddingVertical: 9,
+    paddingHorizontal: 36,
+    marginBottom: 18,
+    marginTop: 4,
+    elevation: 1,
+    shadowColor: "#0ea5e9",
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 1 },
+  },
+  okButtonText: {
+    color: "#fff",
+    fontWeight: "700",
+    fontSize: 17,
+    letterSpacing: 0.09,
   },
 });
