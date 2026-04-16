@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useRate } from "@/context/rate-context";
-import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme.web";
 import { router } from "expo-router";
 import {
@@ -10,6 +9,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
   Platform,
   ImageBackground,
@@ -35,8 +35,8 @@ function formatThousands(value: number): string {
 export default function RateFishScreen() {
   const { byteRate, setByteRate } = useRate();
   const colorScheme = useColorScheme() ?? "light";
-  const theme = Colors[colorScheme === "light" ? "light" : "light"];
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
 
   const [rateInput, setRateInput] = useState(String(byteRate));
   const [totalGemsInput, setTotalGemsInput] = useState("1.000");
@@ -67,7 +67,7 @@ export default function RateFishScreen() {
     <ImageBackground
       source={backgroundImg}
       resizeMode="cover"
-      style={{ flex: 1, paddingTop: insets.top, minHeight: "100%" }}
+      style={{ flex: 1, width: "100%", paddingTop: insets.top, minHeight: "100%" }}
       imageStyle={{ opacity: colorScheme === "light" ? 0.92 : 0.975 }}
     >
       <View style={{ flex: 1, backgroundColor: "rgba(10,32,50,0.45)" }}>
@@ -130,7 +130,7 @@ export default function RateFishScreen() {
             styles.scrollContent,
             {
               paddingBottom: insets.bottom + 32,
-              maxWidth: 850,
+              maxWidth: width < 920 ? undefined : 850,
               alignSelf: "center",
               width: "100%",
             },

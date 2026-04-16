@@ -9,7 +9,7 @@ import {
   Platform,
   StatusBar,
   ImageBackground,
-  Dimensions,
+  useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -17,7 +17,7 @@ const SPLASH_MS = 2200;
 
 export default function SplashRoute() {
   const insets = useSafeAreaInsets();
-  const { width, height } = Dimensions.get('window');
+  const { width, height } = useWindowDimensions();
 
   useEffect(() => {
     const t = setTimeout(() => {

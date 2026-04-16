@@ -25,8 +25,18 @@ export default function RootLayout() {
       }
       viewport.setAttribute(
         'content',
-        'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover'
+        'width=device-width, initial-scale=1, minimum-scale=1, viewport-fit=cover'
       );
+
+      document.documentElement.style.width = '100%';
+      document.body.style.margin = '0';
+      document.body.style.width = '100%';
+      document.body.style.overflowX = 'hidden';
+
+      const root = document.getElementById('root');
+      if (root) {
+        root.style.width = '100%';
+      }
     }
   }, []);
 

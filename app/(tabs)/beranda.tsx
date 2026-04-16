@@ -131,7 +131,7 @@ const fishImageById: Record<string, any> = {
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
-  const isNarrow = width < 480;
+  const sizeBoxBasis = width < 520 ? "48%" : width < 900 ? "31%" : "18.5%";
   const { counts, setCount, reset, totalValue } = useFish();
   const [copied, setCopied] = React.useState(false);
 
@@ -247,7 +247,7 @@ export default function HomeScreen() {
                     key={size}
                     style={[
                       styles.sizeBox,
-                      isNarrow && styles.sizeBoxNarrow,
+                      { flexBasis: sizeBoxBasis },
                     ]}
                   >
                     {sizeIcon && (
@@ -322,6 +322,7 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     position: "relative",
+    width: "100%",
   },
   header: {
     flexDirection: "row",
@@ -443,8 +444,9 @@ const styles = StyleSheet.create({
     padding: 10,
     marginBottom: 9,
     alignItems: "center",
-    width: 120,
-    minWidth: 0,
+    minWidth: 100,
+    maxWidth: 160,
+    flexGrow: 1,
     shadowColor: "#bae6fd",
     shadowOffset: { width: 1, height: 2 },
     shadowOpacity: 0.15,
@@ -452,10 +454,6 @@ const styles = StyleSheet.create({
     marginTop: 5,
     borderWidth: 1,
     borderColor: "#bae6fd",
-  },
-  sizeBoxNarrow: {
-    width: "46%",
-    minWidth: 100,
   },
   sizeIcon: {
     width: 50,

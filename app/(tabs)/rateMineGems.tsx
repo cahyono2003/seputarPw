@@ -129,7 +129,7 @@ export default function RateMineGemsScreen() {
   const colorScheme = useColorScheme() ?? "light";
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
-  const isNarrow = width < 480;
+  const sizeBoxBasis = width < 520 ? "48%" : width < 900 ? "31%" : "18.5%";
   const [copied, setCopied] = useState(false);
 
   const [qtyByKey, setQtyByKey] = useState<Record<string, string>>({});
@@ -172,7 +172,7 @@ export default function RateMineGemsScreen() {
     <ImageBackground
       source={backgroundImg}
       resizeMode="cover"
-      style={{ flex: 1, paddingTop: insets.top, minHeight: "100%" }}
+      style={{ flex: 1, width: "100%", paddingTop: insets.top, minHeight: "100%" }}
       imageStyle={{ opacity: colorScheme === "light" ? 0.92 : 0.975 }}
     >
       <View style={{ flex: 1, backgroundColor: "rgba(10,32,50,0.45)" }}>
@@ -309,7 +309,7 @@ export default function RateMineGemsScreen() {
                       key={key}
                       style={[
                         styles.sizeBox,
-                        isNarrow && styles.sizeBoxNarrow,
+                        { flexBasis: sizeBoxBasis },
                         { backgroundColor: "rgba(236,254,255,0.82)" },
                       ]}
                     >
@@ -505,8 +505,9 @@ const styles = StyleSheet.create({
     padding: 10,
     marginBottom: 9,
     alignItems: "center",
-    width: 120,
-    minWidth: 0,
+    minWidth: 100,
+    maxWidth: 160,
+    flexGrow: 1,
     shadowColor: "#bae6fd",
     shadowOffset: { width: 1, height: 2 },
     shadowOpacity: 0.15,
@@ -514,10 +515,6 @@ const styles = StyleSheet.create({
     marginTop: 5,
     borderWidth: 1.0,
     borderColor: "#bae6fd",
-  },
-  sizeBoxNarrow: {
-    width: "46%",
-    minWidth: 100,
   },
   sizeIcon: {
     width: 38,
