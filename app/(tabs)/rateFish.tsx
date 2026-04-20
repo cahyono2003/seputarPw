@@ -15,6 +15,7 @@ import {
   ImageBackground,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { parseWholeNumberInput } from "@/constants/fish-data";
 
 // Util functions (same as before)
 function parseNonNegativeNumber(input: string): number {
@@ -24,9 +25,7 @@ function parseNonNegativeNumber(input: string): number {
   return n;
 }
 function parseIntegerDigits(input: string): number {
-  const digitsOnly = input.replace(/[^\d]/g, "");
-  if (!digitsOnly) return 0;
-  return Number(digitsOnly);
+  return parseWholeNumberInput(input);
 }
 function formatThousands(value: number): string {
   return value.toLocaleString("id-ID");
@@ -56,7 +55,8 @@ export default function RateFishScreen() {
 
   const onChangeTotalGems = (value: string) => {
     const n = parseIntegerDigits(value);
-    setTotalGemsInput(n === 0 ? "" : formatThousands(n));
+    // Keep digits-only text to prevent locale translation changing separators.
+    setTotalGemsInput(n === 0 ? "" : String(n));
   };
 
   // Use background image like rateMineGems
@@ -201,6 +201,10 @@ export default function RateFishScreen() {
             <TextInput
               value={totalGemsInput}
               onChangeText={onChangeTotalGems}
+              onChange={(e) => {
+                const raw = e.nativeEvent?.text ?? "";
+                onChangeTotalGems(raw);
+              }}
               keyboardType="number-pad"
               placeholder="Enter your total gems"
               placeholderTextColor="#9CA3AF"

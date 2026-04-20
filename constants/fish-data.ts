@@ -134,6 +134,77 @@ export function formatPrice(value: number): string {
   return `${value.toLocaleString('id-ID')} gems`;
 }
 
+const ZERO_CODEPOINTS: number[] = [
+  0x0030, // ASCII
+  0x0660, // Arabic-Indic
+  0x06f0, // Extended Arabic-Indic
+  0x07c0, // NKo
+  0x0966, // Devanagari
+  0x09e6, // Bengali
+  0x0a66, // Gurmukhi
+  0x0ae6, // Gujarati
+  0x0b66, // Oriya
+  0x0be6, // Tamil
+  0x0c66, // Telugu
+  0x0ce6, // Kannada
+  0x0d66, // Malayalam
+  0x0de6, // Sinhala Lith
+  0x0966, // Devanagari
+  0x0e50, // Thai
+  0x0ed0, // Lao
+  0x1040, // Myanmar
+  0x1090, // Myanmar Shan
+  0x17e0, // Khmer
+  0x1810, // Mongolian
+  0x1946, // Limbu
+  0x19d0, // New Tai Lue
+  0x1a80, // Tai Tham Hora
+  0x1a90, // Tai Tham Tham
+  0x1b50, // Balinese
+  0x1bb0, // Sundanese
+  0x1c40, // Lepcha
+  0x1c50, // Ol Chiki
+  0xa620, // Vai
+  0xa8d0, // Saurashtra
+  0xa900, // Kayah Li
+  0xa9d0, // Javanese
+  0xa9f0, // Myanmar Tai Laing
+  0xaa50, // Cham
+  0xabf0, // Meetei Mayek
+  0xff10, // Fullwidth
+  0x1d7ce, // Mathematical Bold
+  0x1d7d8, // Mathematical Double-Struck
+  0x1d7e2, // Mathematical Sans-Serif
+  0x1d7ec, // Mathematical Sans-Serif Bold
+  0x1d7f6, // Mathematical Monospace
+];
+
+function digitFromCodePoint(cp: number): string | null {
+  for (const zero of ZERO_CODEPOINTS) {
+    const diff = cp - zero;
+    if (diff >= 0 && diff <= 9) return String(diff);
+  }
+  return null;
+}
+
+export function extractDigits(input: string): string {
+  const chars = Array.from(input);
+  let out = "";
+  for (const ch of chars) {
+    const cp = ch.codePointAt(0);
+    if (cp == null) continue;
+    const digit = digitFromCodePoint(cp);
+    if (digit !== null) out += digit;
+  }
+  return out;
+}
+
+export function parseWholeNumberInput(input: string): number {
+  const digits = extractDigits(input);
+  if (!digits) return 0;
+  return Number(digits);
+}
+
 export function sizeLabel(size: FishSize): string {
   const map: Record<FishSize, string> = {
     tiny: 'Tiny',

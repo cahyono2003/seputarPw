@@ -2,6 +2,7 @@ import {
   FISHES,
   formatPrice,
   getUnitPrice,
+  parseWholeNumberInput,
   sizeLabel,
   SIZES,
   type FishSize,
@@ -210,11 +211,12 @@ export default function HomeScreen() {
   // --- Perbaikan alert overlimit: ---
   const setCountFromInput = useCallback(
     (fishId: string, size: FishSize, raw: string) => {
-      const digits = raw.replace(/[^\d]/g, "");
+      const nextNumber = parseWholeNumberInput(raw);
+      const digits = nextNumber === 0 ? "" : String(nextNumber);
       const key = `${fishId}-${size}`;
       setInputCounts((prev) => ({ ...prev, [key]: digits }));
 
-      let next = digits.length ? Number(digits) : 0;
+      let next = nextNumber;
 
       if (next > MAX_FISH_COUNT) {
         setInvalidCounts((prev) => ({ ...prev, [key]: true }));
@@ -343,13 +345,9 @@ export default function HomeScreen() {
                 // Use inputVal as integer for line if <= MAX_FISH_COUNT, else show 0 (seperti saat tidak masuk ke state context)
                 let line = 0;
                 let asNumber = 0;
-                if (/^\d+$/.test(inputVal)) {
-                  asNumber = Number(inputVal);
-                  if (asNumber <= MAX_FISH_COUNT) {
-                    line = asNumber * unit;
-                  } else {
-                    line = 0;
-                  }
+                if (inputVal.length > 0) {
+                  asNumber = parseWholeNumberInput(inputVal);
+                  line = asNumber <= MAX_FISH_COUNT ? asNumber * unit : 0;
                 }
                 const sizeKey = typeof size === "string" ? size.toLowerCase() : String(size);
                 const sizeIcon = SIZE_ICONS[fish.id]?.[sizeKey];
@@ -380,6 +378,10 @@ export default function HomeScreen() {
                       onChangeText={(value) =>
                         setCountFromInput(fish.id, size, value)
                       }
+                      onChange={(e) => {
+                        const raw = e.nativeEvent?.text ?? "";
+                        setCountFromInput(fish.id, size, raw);
+                      }}
                       keyboardType="number-pad"
                       placeholder="0"
                       style={[

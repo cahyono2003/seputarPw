@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useState } from "react";
 import { useColorScheme } from "@/hooks/use-color-scheme.web";
 import { router } from "expo-router";
 import {
@@ -13,10 +13,65 @@ import {
   ImageBackground,
   Platform,
   Modal,
+  TouchableOpacity,
   TouchableWithoutFeedback,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Clipboard from "expo-clipboard";
+import {
+  MINE_ITEMS,
+  MINE_SIZES,
+  type MineSize,
+  getMineUnitPrice,
+  mineSizeLabel,
+  parseMineWholeNumberInput,
+  formatPrice,
+} from "@/constants/gems-data";
+import { useMineGems } from "@/context/mine-gems-context";
+
+// Internationalization
+import * as Localization from "expo-localization";
+import { getLocales } from "expo-localization";
+
+// --- Localization strings (add new as needed) ---
+const LANGUAGES = {
+  en: {
+    totalGemsLabel: "Total Gems Value",
+    copyTotal: "Copy total mining gems",
+    copied: "Copied!",
+    reset: "Reset",
+    miningGemsCalculator: "Mining Gems Calculator",
+    mineGems: "Gems Mining",
+    deleteAll: "Delete all data mining gems?",
+    areYouSure: "Are you sure you want to delete all?",
+    cancel: "Cancel",
+    delete: "Delete",
+    max: (n: string) => `Max ${n}`,
+    gems: "gems",
+    gemsItem: "gems/item"
+  },
+  id: {
+    totalGemsLabel: "Total Nilai Gems",
+    copyTotal: "Salin total mining gems",
+    copied: "Tersalin!",
+    reset: "Reset",
+    miningGemsCalculator: "Kalkulator Gems Hasil Mining",
+    mineGems: "Gems Mining",
+    deleteAll: "Hapus seluruh data mining gems?",
+    areYouSure: "Anda yakin ingin menghapus semua?",
+    cancel: "Batal",
+    delete: "Hapus",
+    max: (n: string) => `Maks ${n}`,
+    gems: "gems",
+    gemsItem: "/item"
+  },
+  // add more languages as needed
+};
+
+function getLocaleStrings() {
+  const langCode = (getLocales()[0]?.languageCode ?? "en").toLowerCase() as keyof typeof LANGUAGES;
+  return LANGUAGES[langCode] ?? LANGUAGES.en;
+}
 
 // SIZE ICONS MAP (add more as needed)
 const SIZE_ICON_MAP: Record<string, Record<string, any>> = {
@@ -65,267 +120,145 @@ const DEFAULT_SIZE_ICONS: Record<string, any> = {
   huge: require("@/assets/images/TopazHuge.png"),
 };
 
-type MineItem = {
-  id: string;
-  name: string;
-  image: any;
-  baseGems: number;
+const GEM_IMAGE_BY_ID: Record<string, any> = {
+  topaz: require("@/assets/images/topaz.png"),
+  emerald: require("@/assets/images/emerald.png"),
+  sapphire: require("@/assets/images/sapphire.png"),
+  ruby: require("@/assets/images/ruby.png"),
+  diamond: require("@/assets/images/diamond.png"),
 };
 
-const MINE_SIZES = ["tiny", "small", "medium", "large", "huge"] as const;
-type MineSize = (typeof MINE_SIZES)[number];
-
-const SIZE_MULTIPLIER: Record<MineSize, number> = {
-  tiny: 1,
-  small: 1.6,
-  medium: 2.5,
-  large: 4,
-  huge: 6.5,
-};
-
-const FIXED_MINE_PRICES: Partial<Record<string, Record<MineSize, number>>> = {
-  topaz:   { tiny: 3,  small: 6,   medium: 12,  large: 30,   huge: 90  },
-  emerald: { tiny: 5,  small: 10,  medium: 20,  large: 50,   huge: 150 },
-  sapphire:{ tiny: 10, small: 20,  medium: 40,  large: 100,  huge: 300 },
-  ruby:    { tiny: 20, small: 40,  medium: 80,  large: 200,  huge: 600 },
-  diamond: { tiny: 30, small: 60,  medium: 120, large: 300,  huge: 900 },
-};
-
-function getMineUnitPrice(itemId: string, baseGems: number, size: MineSize): number {
-  const fixed = FIXED_MINE_PRICES[itemId]?.[size];
-  if (typeof fixed === "number") return fixed;
-  return Math.round(baseGems * SIZE_MULTIPLIER[size]);
-}
-
-function sizeLabel(size: MineSize): string {
-  const labels: Record<MineSize, string> = {
-    tiny: "Tiny",
-    small: "Small",
-    medium: "Medium",
-    large: "Large",
-    huge: "Huge",
-  };
-  return labels[size];
-}
-
-// Main MINE ITEMS
-const MINE_ITEMS: MineItem[] = [
-  { id: "topaz",    name: "Topaz",    image: require("@/assets/images/topaz.png"),    baseGems: 70  },
-  { id: "emerald",  name: "Emerald",  image: require("@/assets/images/emerald.png"),  baseGems: 95  },
-  { id: "sapphire", name: "Sapphire", image: require("@/assets/images/sapphire.png"), baseGems: 140 },
-  { id: "ruby",     name: "Ruby",     image: require("@/assets/images/ruby.png"),     baseGems: 120 },
-  { id: "diamond",  name: "Diamond",  image: require("@/assets/images/diamond.png"),  baseGems: 220 },
-];
-
-// === LIMIT INPUT PER ITEM SIZE ===
-const MAX_INPUT_PER_FIELD = 1_000_000;
+const MAX_INPUT_PER_FIELD = 1000000;
 
 function parseIntegerDigits(input: string): number {
-  const digitsOnly = input.replace(/[^\d]/g, "");
-  if (!digitsOnly) return 0;
-  return Number(digitsOnly);
+  return parseMineWholeNumberInput(input);
 }
 
-function formatThousands(value: number): string {
-  return value.toLocaleString("id-ID");
-}
-
-// ===== ALERT DIALOG LAYOUT START =====
-function AlertDialog({
-  visible,
-  title,
-  desc,
-  onClose,
-  primaryBtn = { label: "OK", onPress: undefined },
-  img,
-}: {
-  visible: boolean;
-  title: string;
-  desc?: string;
-  onClose: () => void;
-  primaryBtn?: { label: string; onPress?: (() => void) | undefined };
-  img?: any;
-}) {
+function OverlimitModal({ visible, onClose }: { visible: boolean, onClose: () => void }) {
   return (
     <Modal
       visible={visible}
       transparent
       animationType="fade"
       onRequestClose={onClose}
-      statusBarTranslucent={true}
     >
-      <TouchableWithoutFeedback onPress={onClose}>
-        <View style={alertStyles.backdrop} />
-      </TouchableWithoutFeedback>
-      <View style={alertStyles.centerContentWrap} pointerEvents="box-none">
-        <View style={alertStyles.card}>
-          {img && (
-            <Image
-              source={img}
-              style={alertStyles.img}
-              resizeMode="contain"
-            />
-          )}
-          <Text style={alertStyles.title}>{title}</Text>
-          {desc && <Text style={alertStyles.desc}>{desc}</Text>}
-          <Pressable
-            style={({ pressed }) => [
-              alertStyles.button,
-              { opacity: pressed ? 0.8 : 1 },
-            ]}
-            onPress={() => {
-              if (primaryBtn?.onPress) primaryBtn.onPress();
-              onClose();
-            }}
-          >
-            <Text style={alertStyles.btnText}>{primaryBtn.label}</Text>
-          </Pressable>
+      <View style={modalStyles.modalBackground}>
+        <View style={modalStyles.modalContainer}>
+          <Image
+            source={require("@/assets/images/kucing.jpg")}
+            style={modalStyles.catImage}
+            resizeMode="cover"
+          />
+          <Text style={modalStyles.modalTitle}>Seriously bro?</Text>
+          <Text style={modalStyles.modalText}>
+            The maximum number of fish is 1,000,000 per type/size.
+          </Text>
+          <TouchableOpacity style={modalStyles.okButton} onPress={onClose} activeOpacity={0.86}>
+            <Text style={modalStyles.okButtonText}>OK</Text>
+          </TouchableOpacity>
         </View>
       </View>
     </Modal>
   );
 }
 
-const alertStyles = StyleSheet.create({
-  backdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.37)",
-  },
-  centerContentWrap: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    position: "absolute",
-    left: 0, right: 0, top: 0, bottom: 0,
-    zIndex: 10,
-  },
-  card: {
-    minWidth: 250,
-    maxWidth: 350,
-    backgroundColor: "#fff",
-    borderRadius: 22,
-    padding: 24,
-    alignItems: "center",
-    elevation: 8,
-    shadowColor: "#0284c7",
-    shadowOpacity: 0.16,
-    shadowRadius: 25,
-    shadowOffset: { width: 0, height: 10 },
-    marginHorizontal: 24,
-  },
-  img: {
-    width: 200,
-    height: 190,
-    borderTopLeftRadius: 23,
-    borderTopRightRadius: 23,
-    marginBottom: 9,
-    marginTop: 4,
-  },
-  title: {
-    fontWeight: "800",
-    fontSize: 18,
-    color: "#0ea5e9",
-    marginBottom: 8,
-    textAlign: "center",
-    marginTop: 0,
-  },
-  desc: {
-    color: "#13203D",
-    fontWeight: "500",
-    fontSize: 14.5,
-    marginBottom: 18,
-    textAlign: "center",
-    opacity: 0.84,
-    marginTop: 2,
-  },
-  button: {
-    backgroundColor: "#bae6fd",
-    borderRadius: 12,
-    paddingVertical: 8,
-    paddingHorizontal: 24,
-    alignItems: "center",
-  },
-  btnText: {
-    color: "#0284c7",
-    fontWeight: "700",
-    fontSize: 15.5,
-    letterSpacing: 0.1,
-  }
-});
-// ===== ALERT DIALOG LAYOUT END =====
-
 export default function RateMineGemsScreen() {
   const colorScheme = useColorScheme() ?? "light";
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const sizeBoxBasis = width < 520 ? "48%" : width < 900 ? "31%" : "18.5%";
+  const { counts, setCount, reset } = useMineGems();
   const [copied, setCopied] = useState(false);
 
   const [qtyByKey, setQtyByKey] = useState<Record<string, string>>({});
-
-  // For alert dialog state
-  const [alertVisible, setAlertVisible] = useState(false);
-  const [alertTitle, setAlertTitle] = useState("");
-  const [alertDesc, setAlertDesc] = useState<string | undefined>("");
-  const [alertImg, setAlertImg] = useState<any>(undefined);
-
-  const [resetAlertVisible, setResetAlertVisible] = useState(false);
+  const [invalidByKey, setInvalidByKey] = useState<Record<string, boolean>>({});
+  const [showOverlimitModal, setShowOverlimitModal] = useState(false);
 
   const makeKey = (itemId: string, size: MineSize) => `${itemId}:${size}`;
 
-  // MODIFY setQty TO RESPECT LIMIT
-  const setQty = (itemId: string, size: MineSize, value: string) => {
-    let n = parseIntegerDigits(value);
-    // Show alert if input lebih dari limit max
-    if (n > MAX_INPUT_PER_FIELD) {
-      setAlertTitle("Seriously bro?");
-      setAlertDesc(
-        `The maximum number of fish is 1,000,000 per type/size.`
-      );
-      setAlertImg(require("@/assets/images/kucing.jpg"));
-      setAlertVisible(true);
-      n = MAX_INPUT_PER_FIELD;
+  // --- Locale strings
+  const t = getLocaleStrings();
+
+  // Sinkronisasi qtyByKey dengan counts hanya jika data context berubah
+  React.useEffect(() => {
+    const nextInputs: Record<string, string> = {};
+    for (const item of MINE_ITEMS) {
+      for (const size of MINE_SIZES) {
+        const key = makeKey(item.id, size);
+        if (!(key in qtyByKey)) {
+          nextInputs[key] = String(counts[item.id]?.[size] ?? 0);
+        } else {
+          nextInputs[key] = qtyByKey[key];
+        }
+      }
     }
+    setQtyByKey(nextInputs);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [counts]);
+
+  // Input change handler: update qtyByKey selalu, dan jika valid update counts juga, jika overlimit jangan.
+  const setQtyFromInput = useCallback((itemId: string, size: MineSize, raw: string) => {
     const key = makeKey(itemId, size);
-    setQtyByKey((prev) => ({ ...prev, [key]: n === 0 ? "" : formatThousands(n) }));
+    setQtyByKey(prev => ({ ...prev, [key]: raw }));
+
+    const n = parseIntegerDigits(raw);
+
+    if (n > MAX_INPUT_PER_FIELD) {
+      setInvalidByKey(prev => ({ ...prev, [key]: true }));
+      setShowOverlimitModal(prevShow => {
+        if (!invalidByKey[key]) {
+          return true;
+        }
+        return prevShow;
+      });
+      return;
+    } else {
+      setInvalidByKey(prev => ({ ...prev, [key]: false }));
+      setShowOverlimitModal(false);
+      setCount(itemId, size, n);
+    }
+  }, [invalidByKey, setCount]);
+
+  const onResetMiningGems = () => {
+    setResetAlertVisible(true);
   };
 
-  const totalGems = useMemo(() => {
-    return MINE_ITEMS.reduce((sum, item) => {
-      let itemTotal = 0;
-      for (const size of MINE_SIZES) {
-        const qty = parseIntegerDigits(qtyByKey[makeKey(item.id, size)] ?? "");
-        const unit = getMineUnitPrice(item.id, item.baseGems, size);
-        itemTotal += qty * unit;
-      }
-      return sum + itemTotal;
-    }, 0);
-  }, [qtyByKey]);
+  const [resetAlertVisible, setResetAlertVisible] = useState(false);
 
   const copyTotalGems = async () => {
-    await Clipboard.setStringAsync(`${formatThousands(totalGems)} gems`);
+    await Clipboard.setStringAsync(formatPrice(totalValue));
     setCopied(true);
     setTimeout(() => setCopied(false), 1200);
   };
 
-  // Reset with confirmation dialog (custom for reset, not AlertDialog)
-  const onResetMiningGems = () => {
-    setResetAlertVisible(true);
-  };
+  // TOTAL VALUE hitung dari context counts saja yang valid (<= MAX_INPUT_PER_FIELD)
+  const totalValue = React.useMemo(() => {
+    let total = 0;
+    for (const item of MINE_ITEMS) {
+      for (const size of MINE_SIZES) {
+        const key = makeKey(item.id, size);
+        const inputVal = qtyByKey[key];
+        let n = 0;
+        if (typeof inputVal !== "undefined" && inputVal.length > 0) {
+          n = parseIntegerDigits(inputVal);
+        } else {
+          n = counts[item.id]?.[size] ?? 0;
+        }
+        const unit = getMineUnitPrice(item.id, item.baseGems, size);
+        if (n > 0 && n <= MAX_INPUT_PER_FIELD) {
+          total += n * unit;
+        }
+      }
+    }
+    return total;
+  }, [counts, qtyByKey]);
 
   // Determine bg cover
   const backgroundImg = require("@/assets/images/background.jpg");
 
   return (
     <>
-      {/* Alert dialog (for max limit only) */}
-      <AlertDialog
-        visible={alertVisible}
-        title={alertTitle}
-        desc={alertDesc}
-        img={alertImg}
-        onClose={() => setAlertVisible(false)}
-      />
+      <OverlimitModal visible={showOverlimitModal} onClose={() => setShowOverlimitModal(false)} />
 
       {/* Reset confirmation dialog */}
       <Modal
@@ -341,9 +274,10 @@ export default function RateMineGemsScreen() {
         <View style={resetModalStyles.centerContentWrap} pointerEvents="box-none">
           <View style={resetModalStyles.card}>
             <Text style={resetModalStyles.title}>
-            Delete all data mining gems?
+              {t.deleteAll}
             </Text>
-            <Text style={resetModalStyles.desc}>Are you sure you want to delete all?
+            <Text style={resetModalStyles.desc}>
+              {t.areYouSure}
             </Text>
             <View style={{ flexDirection: 'row', gap: 13, marginTop: 12 }}>
               <Pressable
@@ -353,7 +287,7 @@ export default function RateMineGemsScreen() {
                 ]}
                 onPress={() => setResetAlertVisible(false)}
               >
-                <Text style={resetModalStyles.cancelBtnText}>Cancel</Text>
+                <Text style={resetModalStyles.cancelBtnText}>{t.cancel}</Text>
               </Pressable>
               <Pressable
                 style={({ pressed }) => [
@@ -361,12 +295,20 @@ export default function RateMineGemsScreen() {
                   { opacity: pressed ? 0.87 : 1 },
                 ]}
                 onPress={() => {
-                  setQtyByKey({});
+                  reset();
+                  const cleared: Record<string, string> = {};
+                  for (const item of MINE_ITEMS) {
+                    for (const size of MINE_SIZES) {
+                      cleared[makeKey(item.id, size)] = "0";
+                    }
+                  }
+                  setQtyByKey(cleared);
+                  setInvalidByKey({});
                   setCopied(false);
                   setResetAlertVisible(false);
                 }}
               >
-                <Text style={resetModalStyles.okBtnText}>Delete</Text>
+                <Text style={resetModalStyles.okBtnText}>{t.delete}</Text>
               </Pressable>
             </View>
           </View>
@@ -425,10 +367,10 @@ export default function RateMineGemsScreen() {
                     },
                   ]}
                 >
-                  Mine Gems
+                  {t.mineGems}
                 </Text>
                 <Text style={[styles.headerSub, { color: "#fff" }]}>
-                  Mining Gems Calculator
+                  {t.miningGemsCalculator}
                 </Text>
               </View>
             </View>
@@ -444,7 +386,7 @@ export default function RateMineGemsScreen() {
                 },
               ]}
             >
-              <Text style={[styles.resetLabel, { color: "#0ea5e9" }]}>Reset</Text>
+              <Text style={[styles.resetLabel, { color: "#0ea5e9" }]}>{t.reset}</Text>
             </Pressable>
           </View>
 
@@ -477,7 +419,7 @@ export default function RateMineGemsScreen() {
               >
                 <View style={styles.cardHeader}>
                   <Image
-                    source={item.image}
+                    source={GEM_IMAGE_BY_ID[item.id]}
                     style={styles.gemImage}
                     resizeMode="contain"
                   />
@@ -493,22 +435,29 @@ export default function RateMineGemsScreen() {
                       },
                     ]}
                   >
-                    {item.name}
+                    {item.label}
                   </Text>
                 </View>
 
                 <View style={styles.sizesRowWrap}>
                   {MINE_SIZES.map((size, idx) => {
                     const key = makeKey(item.id, size);
-                    const qty = parseIntegerDigits(qtyByKey[key] ?? "");
+                    let inputVal = qtyByKey[key];
+                    if (typeof inputVal === "undefined") {
+                      const ctxVal = counts[item.id]?.[size];
+                      inputVal = ctxVal && ctxVal > 0 ? String(ctxVal) : "0";
+                    }
+                    const n = inputVal.length > 0 ? parseIntegerDigits(inputVal) : 0;
                     const unit = getMineUnitPrice(item.id, item.baseGems, size);
-                    const subtotal = qty * unit;
-                    // Size icon selection
+                    // Perbaikan: tidak tampilkan subtotal jika > max, samakan dengan beranda.tsx
+                    let subtotal = 0;
+                    if (inputVal.length > 0) {
+                      subtotal = n <= MAX_INPUT_PER_FIELD ? n * unit : 0;
+                    }
                     const iconSource =
                       SIZE_ICON_MAP[item.id]?.[size] || DEFAULT_SIZE_ICONS[size];
 
-                    // Add "limit reached" info
-                    const showLimit = qty >= MAX_INPUT_PER_FIELD;
+                    const isInvalid = invalidByKey[key] ?? false;
 
                     return (
                       <View
@@ -534,21 +483,22 @@ export default function RateMineGemsScreen() {
                             },
                           ]}
                         >
-                          {sizeLabel(size)}
+                          {mineSizeLabel(size)}
                         </Text>
+                        {/* Perbaikan: Hanya tampilkan format "x gems/item" tanpa ada duplikasi kata gems */}
                         <Text style={styles.unitPrice}>
-                          {formatThousands(unit)} gems/item
+                          {`${formatPrice(unit)}${t.gemsItem}`}
                         </Text>
                         <TextInput
-                          value={qtyByKey[key] ?? ""}
-                          onChangeText={(v) => setQty(item.id, size, v)}
+                          value={inputVal}
+                          onChangeText={(v) => setQtyFromInput(item.id, size, v)}
                           keyboardType="number-pad"
                           placeholder="0"
                           placeholderTextColor="#94a3b8"
                           style={[
                             styles.qtyInput,
                             {
-                              borderColor: showLimit ? '#fb7185' : "#36bef7",
+                              borderColor: isInvalid ? '#fb7185' : "#36bef7",
                               backgroundColor: "#f0f9ff",
                               color: "#334155",
                               fontWeight: "600",
@@ -557,8 +507,8 @@ export default function RateMineGemsScreen() {
                           inputMode="numeric"
                           maxLength={9}
                         />
-                        {showLimit && (
-                          <Text style={styles.limitHint}>Max {formatThousands(MAX_INPUT_PER_FIELD)}</Text>
+                        {isInvalid && (
+                          <Text style={styles.limitHint}>{t.max(formatPrice(MAX_INPUT_PER_FIELD))}</Text>
                         )}
                         <Text
                           style={[
@@ -569,7 +519,7 @@ export default function RateMineGemsScreen() {
                             },
                           ]}
                         >
-                          {formatThousands(subtotal)} gems
+                          {formatPrice(subtotal)}
                         </Text>
                       </View>
                     );
@@ -587,18 +537,18 @@ export default function RateMineGemsScreen() {
             ]}
           >
             <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Total Gems Value</Text>
+              <Text style={styles.summaryLabel}>{t.totalGemsLabel}</Text>
               <Pressable
                 onPress={copyTotalGems}
                 style={({ pressed }) => [
                   styles.copyValuePressable,
                   { opacity: pressed ? 0.82 : 1 },
                 ]}
-                accessibilityLabel="Salin total mining gems"
+                accessibilityLabel={t.copyTotal}
                 android_ripple={{ color: "#0369A1" }}
               >
                 <Text style={styles.summaryValueLarge}>
-                  {formatThousands(totalGems)} gems
+                  {formatPrice(totalValue)}
                 </Text>
                 <Image
                   source={require("@/assets/images/copy.png")}
@@ -608,7 +558,7 @@ export default function RateMineGemsScreen() {
               </Pressable>
             </View>
             {copied && (
-              <Text style={styles.copiedHint}>Copied!</Text>
+              <Text style={styles.copiedHint}>{t.copied}</Text>
             )}
           </View>
         </View>
@@ -616,6 +566,8 @@ export default function RateMineGemsScreen() {
     </>
   );
 }
+
+// --- styles remain unchanged below ---
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
@@ -822,6 +774,77 @@ const styles = StyleSheet.create({
     marginBottom: 2,
     fontWeight: "500",
     letterSpacing: 0.01,
+  },
+});
+
+const modalStyles = StyleSheet.create({
+  modalBackground: {
+    flex: 1,
+    backgroundColor: "rgba(21,27,36,0.83)",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 17,
+  },
+  modalContainer: {
+    backgroundColor: "#fff",
+    borderRadius: 23,
+    padding: 0,
+    alignItems: "center",
+    shadowColor: "#0284c7",
+    shadowOpacity: 0.13,
+    shadowOffset: { width: 0, height: 5 },
+    shadowRadius: 18,
+    minWidth: 290,
+    width: 320,
+    maxWidth: "95%",
+    elevation: 8,
+    overflow: "hidden",
+  },
+  catImage: {
+    width: 200,
+    height: 190,
+    marginTop: 20,
+    borderTopLeftRadius: 23,
+    borderTopRightRadius: 23,
+    backgroundColor: "#e0e7ef",
+  },
+  modalTitle: {
+    marginTop: 13,
+    fontWeight: "800",
+    fontSize: 22,
+    color: "#0284c7",
+    letterSpacing: 0.07,
+    textAlign: "center",
+    marginBottom: 2,
+  },
+  modalText: {
+    textAlign: "center",
+    color: "#334155",
+    marginTop: 3,
+    fontSize: 16,
+    lineHeight: 23,
+    marginBottom: 17,
+    paddingHorizontal: 18,
+    fontWeight: "500",
+  },
+  okButton: {
+    backgroundColor: "#0891b2",
+    borderRadius: 13,
+    paddingVertical: 9,
+    paddingHorizontal: 36,
+    marginBottom: 18,
+    marginTop: 4,
+    elevation: 1,
+    shadowColor: "#0ea5e9",
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 1 },
+  },
+  okButtonText: {
+    color: "#fff",
+    fontWeight: "700",
+    fontSize: 17,
+    letterSpacing: 0.09,
   },
 });
 
